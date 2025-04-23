@@ -19,7 +19,7 @@ app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/api', userRoutes);
 
 app.get('/', (req, res) => {
-  res.status(404).send('Not Found');
+  res.status(418).json({ "service running": true });
 });
 
 // Error handling middleware

@@ -1,15 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @PrimaryColumn()
+  osuId!: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, type: 'text' })
   discordId!: string;
 
-  @Column({ unique: true })
-  osuId!: string;
+  @Column({ default: false })
+  deleted!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  discordName!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  discordUsername!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

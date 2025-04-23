@@ -3,4 +3,5 @@ export interface DiscordUser {
     name: string;
     avatar: string;
     id: string;
+    global_name: string;
   }

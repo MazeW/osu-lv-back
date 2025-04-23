@@ -18,6 +18,6 @@ export const config = {
     baseUrl: 'https://discord.com/api/v10'
   },
   cache: {
-    ttl: (process.env.NODE_ENV == 'production') ? 5 * 60 * 60 : 60 // 5 hours cache for prod and 1 min. for dev
+    ttl: (process.env.NODE_ENV == 'production') ? 5 * 60 * 60 : 60*15 // 5 hours cache for prod and 15 min. for dev
   }
 };

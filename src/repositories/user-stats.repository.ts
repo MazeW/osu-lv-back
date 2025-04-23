@@ -3,6 +3,7 @@ import { AppDataSource } from '../config/database';
 import { UserStats } from '../entities/UserStats';
 import { logger } from '../utils/logger';
 import { UserStatsData} from '../types/osu';
+import { User } from '../entities/User';
 
 
 
@@ -34,5 +35,19 @@ export class UserStatsRepository {
       logger.error('Error upserting user stats:', error);
       throw new Error('Failed to upsert user stats');
     }
+  }
+
+  async findAllLV(): Promise<(UserStats & { discord?: string })[]> {
+    return this.repository
+      .createQueryBuilder('stats')
+      .innerJoinAndMapOne(
+        'stats.discord',
+        User,
+        'user',
+        'user.osuId = stats.osuId'
+      )
+      .where('stats.country = :c', { c: 'LV' })
+      .orderBy('stats.countryRank', 'ASC')
+      .getMany();
   }
 }

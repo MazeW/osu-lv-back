@@ -1,57 +1,77 @@
 import axios from 'axios';
 import NodeCache from 'node-cache';
 import { config } from '../config/config';
-import { logger } from '../utils/logger';
-import { OsuUser } from '../types/osu';
+import { OsuUser, Rankings } from '../types/osu';
 
-const cache = new NodeCache({ stdTTL: config.cache.ttl });
 
 export class OsuService {
   private token: string | null = null;
+  private cache: NodeCache;
 
-  private async getToken(): Promise<string> {
-    if (this.token) return this.token;
-
-    try {
-      const response = await axios.post('https://osu.ppy.sh/oauth/token', {
-        client_id: config.osuApi.clientId,
-        client_secret: config.osuApi.clientSecret,
-        grant_type: 'client_credentials',
-        scope: 'public'
-      });
-
-      this.token = response.data.access_token;
-      return this.token!; // hopefully doesn't break xd
-    } catch (error) {
-      logger.error('Failed to get osu! API token:', error);
-      throw new Error('Failed to authenticate with osu! API');
-    }
+  constructor() {
+    this.cache = new NodeCache({ stdTTL: config.cache.ttl });
   }
+  /**
+   * Retrieves an access token from the osu! API.
+   * If a token is already cached, it uses that instead.
+   * @returns {Promise<string>} The access token.
+   */
+  private async getToken(): Promise<string> {
+    const cachedToken = this.cache.get<string>('osu_token');
+    if (cachedToken) {
+      return cachedToken;
+    }
+    const response = await axios.post('https://osu.ppy.sh/oauth/token', {
+      client_id: config.osuApi.clientId,
+      client_secret: config.osuApi.clientSecret,
+      grant_type: 'client_credentials',
+      scope: 'public'
+    });
+    var token = response.data.access_token;
+    if (!token || response.status !== 200) {
+      throw new Error('Failed to retrieve access token');
+    }
+    this.cache.set('osu_token', token, response.data.expires_in);
+    return token;
 
-  async getUserStats(userId: string): Promise<OsuUser> {
-    const cacheKey = `user-stats-${userId}`;
-    const cached = cache.get<OsuUser>(cacheKey);
-    if (cached) return cached;
+  }
+  /**
+   * Retrieves user statistics from the osu! API.
+   * @param {string} userId - The ID of the user.
+   * @param {string} mode - The game mode (default is "osu").
+   * @returns {Promise<OsuUser>} The user statistics. Such as global rank, country rank, performance points, country, and username.
+   */
+  async getUserStats(userId: string, mode: string = "osu"): Promise<OsuUser> {
 
     const token = await this.getToken();
-    try {
-      const response = await axios.get(`${config.osuApi.baseUrl}/users/${userId}/osu`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+    const response = await axios.get(`${config.osuApi.baseUrl}/users/${userId}/${mode}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
 
-      const stats: OsuUser = {
-        globalRank: response.data.statistics.global_rank,
-        countryRank: response.data.statistics.country_rank,
-        performancePoints: response.data.statistics.pp,
-        country: response.data.country.code,
-        osuUsername: response.data.username
-      };
+    return {
+      globalRank: response.data.statistics.global_rank,
+      countryRank: response.data.statistics.country_rank,
+      performancePoints: response.data.statistics.pp,
+      country: response.data.country.code,
+      username: response.data.username
+    };
+  }
 
-      cache.set(cacheKey, stats);
-      return stats;
-    } catch (error) {
-      logger.error(`Failed to fetch user stats for ${userId}:`, error);
-      throw new Error('Failed to fetch user stats');
-    }
+  /**
+   * Retrieves user scores from the osu! API.
+   * @param {string} userId - The ID of the user.
+   * @param {string} type - The type of scores to retrieve (default is "best"). Possible values are "best", "recent" and "firsts"
+   * @param {number} limit - The number of scores to retrieve (default is 5).
+   * @param {number} offset - The offset for pagination (default is 0). Useful if you want to get outside of top 100 scores.
+   * @param {string} mode - The game mode (default is "osu").
+   * @description Retrieves user scores from the osu! API.
+   * @returns {Promise<Rankings>} The user scores.
+   */
+  async getUserScores(userId: string, type: string = "best", limit: number = 5, offset: number = 0, mode: string = "osu"): Promise<Rankings> {
+    const token = await this.getToken();
+    const response = await axios.get(`${config.osuApi.baseUrl}/users/${userId}/scores/${type}?mode=${mode}&limit=${limit}&offset=${offset}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data as Rankings;
   }
 }

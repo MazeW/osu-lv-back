@@ -3,89 +3,144 @@ import { UserStatsRepository } from '../repositories/user-stats.repository';
 import { OsuService } from './osu.service';
 import { DiscordService } from './discord.service';
 import { logger } from '../utils/logger';
-import NodeCache from 'node-cache';
 import { config } from '../config/config';
 import { UserRanking } from '../types/osu';
-import { UserStats } from '../entities/UserStats';
 
-const CACHE_KEY = 'user-rankings';
-const cache = new NodeCache({ stdTTL: config.cache.ttl });
-
+interface ProcessResult {
+  success: boolean;
+  errors: { osuId: string; step: string; message: string }[];
+  deletedUsers: string[];
+}
 
 export class RankingsService {
-  private userRepository: UserRepository;
-  private userStatsRepository: UserStatsRepository;
-  private osuService: OsuService;
-  private discordService: DiscordService;
+  private userRepo = new UserRepository();
+  private statsRepo = new UserStatsRepository();
+  private osuSvc = new OsuService();
+  private discordSvc = new DiscordService();
 
-  constructor() {
-    this.userRepository = new UserRepository();
-    this.userStatsRepository = new UserStatsRepository();
-    this.osuService = new OsuService();
-    this.discordService = new DiscordService();
+  private delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+  async processUsers(): Promise<ProcessResult> {
+    const errors: ProcessResult['errors'] = [];
+    const deletedUsers: string[] = [];
+
+    const users = await this.userRepo.findAll();
+    for (const user of users) {
+
+      if (user.deleted) {
+        continue;
+      }
+
+      let discordUser;
+      let retryCount = 0;
+
+      while (true) {
+        try {
+          discordUser = await this.discordSvc.getUserById(user.discordId);
+
+          const isDeleted =
+            discordUser.username?.startsWith('deleted_user') &&
+            discordUser.global_name === null;
+
+          if (isDeleted) {
+            await this.userRepo.markDeleted(user.osuId, true);
+            deletedUsers.push(user.osuId);
+            break;
+          }
+
+          await this.userRepo.upsertDiscordInfo(
+            user.osuId,
+            discordUser.name,
+            discordUser.username
+          );
+          break;
+
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+            await this.userRepo.markDeleted(user.osuId, true);
+            deletedUsers.push(user.osuId);
+            break;
+          }
+
+          if (err.response?.status === 429 && retryCount < 3) {
+            const retryAfter = parseInt(err.response.headers['retry-after'], 10) || 1;
+            const waitMs = retryAfter * 1000;
+            logger.warn(`Rate limited. Retrying in ${waitMs}ms...`);
+            await this.delay(waitMs);
+            retryCount++;
+            continue;
+          }
+
+          errors.push({
+            osuId: user.osuId,
+            step: 'discord',
+            message: err.message
+          });
+          break;
+        }
+      }
+
+      let stats;
+      try {
+        stats = await this.osuSvc.getUserStats(user.osuId);
+        if (!stats) {
+          throw new Error('No stats returned');
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          logger.warn(`osu! user ${user.osuId} is restricted (404)`);
+          continue;
+        }
+        errors.push({
+          osuId: user.osuId,
+          step: 'osu',
+          message: err.message
+        });
+        continue;
+      }
+
+      // 3. Only LV and PP>0
+      if (stats.country !== 'LV' || (stats.performancePoints ?? 0) <= 0) {
+        continue;
+      }
+
+      try {
+        await this.statsRepo.upsert({
+          osuId: user.osuId,
+          username: stats.username,
+          globalRank: stats.globalRank ?? 0,
+          countryRank: stats.countryRank ?? 0,
+          performancePoints: stats.performancePoints ?? 0,
+          country: stats.country
+        });
+      } catch (err: any) {
+        errors.push({
+          osuId: user.osuId,
+          step: 'stats-upsert',
+          message: err.message
+        });
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      errors,
+      deletedUsers
+    };
   }
 
-  async getUserRankings(): Promise<UserRanking[]> {
-    try {
-      // Check cache first
-      const cachedRankings = cache.get<UserRanking[]>(CACHE_KEY);
-      if (cachedRankings) {
-        return cachedRankings;
-      }
-
-      const users = await this.userRepository.findAll();
-      const rankings: UserRanking[] = [];
-
-      // Get all stored stats first
-      const storedStats = await this.userStatsRepository.findAll();
-      const storedStatsMap = new Map(storedStats.map(stat => [stat.osuId, stat]));
-
-      const discordIds = users.map(user => user.discordId);
-      const discordUsernames = await this.discordService.getUsernames(discordIds);
-
-      for (const user of users) {
-        const storedStat = storedStatsMap.get(user.osuId);
-        const shouldUpdateStats = !storedStat || 
-          (Date.now() - storedStat.updatedAt.getTime() > config.cache.ttl * 1000);
-
-        let stats;
-        if (shouldUpdateStats) {
-          stats = await this.osuService.getUserStats(user.osuId);
-          if (stats.country === 'LV') {
-            await this.userStatsRepository.upsert({
-              osuId: user.osuId,
-              globalRank: stats.globalRank,
-              countryRank: stats.countryRank,
-              performancePoints: stats.performancePoints,
-              country: stats.country,
-              osuUsername: stats.osuUsername
-            });
-          }
-        } else {
-          stats = storedStat;
-        }
-
-        if (stats.country === 'LV') { // we should only display people from LV, so if we have users from other countries in DB, skip them
-          rankings.push({
-            countryRank: stats.countryRank,
-            osuUsername: stats.osuUsername,
-            discordUsername: discordUsernames.get(user.discordId) || user.discordId,
-            globalRank: stats.globalRank,
-            performancePoints: stats.performancePoints,
-            country: stats.country
-          });
-        }
-      }
-
-      const sortedRankings = rankings.sort((a, b) => a.countryRank - b.countryRank);
-      
-      // Cache the results
-      cache.set(CACHE_KEY, sortedRankings);
-
-      return sortedRankings;
-    } catch (error) {
-      logger.error('Error getting user rankings:', error);
-      throw new Error('Failed to get user rankings');
-    }
+  async getRankings(): Promise<UserRanking[]> {
+    const stats = await this.statsRepo.findAllLV();
+    return stats
+      .filter(s => s.performancePoints > 0)
+      .sort((a, b) => a.countryRank - b.countryRank)
+      .map(s => ({
+        countryRank: s.countryRank,
+        globalRank: s.globalRank,
+        performancePoints: s.performancePoints,
+        country: s.country,
+        username: s.username,
+        discord: s.discord
+      }));
   }
 }

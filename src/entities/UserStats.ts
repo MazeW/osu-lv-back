@@ -9,7 +9,7 @@ export class UserStats {
   osuId!: string;
 
   @Column()
-  osuUsername!: string;
+  username!: string;
 
   @Column()
   globalRank!: number;
