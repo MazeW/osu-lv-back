@@ -37,7 +37,7 @@ export class UserStatsRepository {
     }
   }
 
-  async findAllLV(): Promise<(UserStats & { discord?: string })[]> {
+  async findAllLV(): Promise<(UserStats & { discord?: any })[]> {
     return this.repository
       .createQueryBuilder('stats')
       .innerJoinAndMapOne(

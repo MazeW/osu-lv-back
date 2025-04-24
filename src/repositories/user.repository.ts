@@ -14,11 +14,20 @@ export class UserRepository {
     return this.repository.find();
   }
 
+  async findByOsuId(osuId: string): Promise<User | null> {
+    return this.repository.findOne({ where: { osuId } });
+  }
+  
+  async save(user: User): Promise<User> {
+    return this.repository.save(user);
+  }
+
   async upsert(
     discordId: string,
     osuId: string,
     discordName: string | null = null,
-    discordUsername: string | null = null
+    discordUsername: string | null = null,
+    discordAvatar: string | null = null
   ): Promise<User> {
     try {
       let user = await this.repository.findOne({ where: [{ discordId }, { osuId }] });
@@ -27,7 +36,7 @@ export class UserRepository {
         user.discordId = discordId;
         user.discordName = discordName;
         user.discordUsername = discordUsername;
-        // preserve deleted status
+        user.discordAvatar = discordAvatar;
         return this.repository.save(user);
       }
   
@@ -49,16 +58,17 @@ export class UserRepository {
   async upsertDiscordInfo(
     osuId: string,
     discordName: string | null,
-    discordUsername: string | null
+    discordUsername: string | null,
+    discordAvatar: string | null = null
   ): Promise<User> {
     const user = await this.repository.findOneBy({ osuId });
     if (!user) throw new Error(`User ${osuId} not found`);
     user.discordName = discordName;
     user.discordUsername = discordUsername;
+    user.discordAvatar = discordAvatar;
     return this.repository.save(user);
   }
 
-  /** Mark a user as deleted or restore */
   async markDeleted(osuId: string, deleted: boolean): Promise<void> {
     await this.repository.update({ osuId }, { deleted });
   }

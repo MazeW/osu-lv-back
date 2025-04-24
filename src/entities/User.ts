@@ -17,6 +17,9 @@ export class User {
   @Column({ type: 'text', nullable: true })
   discordUsername!: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  discordAvatar!: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

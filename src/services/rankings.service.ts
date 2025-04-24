@@ -5,6 +5,7 @@ import { DiscordService } from './discord.service';
 import { logger } from '../utils/logger';
 import { config } from '../config/config';
 import { UserRanking } from '../types/osu';
+import NodeCache from 'node-cache';
 
 interface ProcessResult {
   success: boolean;
@@ -17,9 +18,15 @@ export class RankingsService {
   private statsRepo = new UserStatsRepository();
   private osuSvc = new OsuService();
   private discordSvc = new DiscordService();
-
+  private cache = new NodeCache({ stdTTL: config.cache.ttl });
   private delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+  /**
+   * Processes users by fetching their Discord and osu! stats, updating the database,
+   * and handling errors.
+   * @returns {Promise<ProcessResult>} The result of the processing, including success status,
+   * any errors encountered, and a list of deleted users. Does not throw errors. (I hope)
+   */
   async processUsers(): Promise<ProcessResult> {
     const errors: ProcessResult['errors'] = [];
     const deletedUsers: string[] = [];
@@ -51,7 +58,8 @@ export class RankingsService {
           await this.userRepo.upsertDiscordInfo(
             user.osuId,
             discordUser.name,
-            discordUser.username
+            discordUser.username,
+            discordUser.avatar
           );
           break;
 
@@ -94,13 +102,12 @@ export class RankingsService {
         errors.push({
           osuId: user.osuId,
           step: 'osu',
-          message: err.message
+          message: `[${err?.response?.status}] ${err.message}`
         });
         continue;
       }
 
-      // 3. Only LV and PP>0
-      if (stats.country !== 'LV' || (stats.performancePoints ?? 0) <= 0) {
+      if ((stats.performancePoints ?? 0) <= 0) {
         continue;
       }
 
@@ -128,19 +135,46 @@ export class RankingsService {
       deletedUsers
     };
   }
-
-  async getRankings(): Promise<UserRanking[]> {
+ // TODO: create an interface for the return value instead of any[]
+  /**
+   * Retrieves the top 50 rankings for users in Latvia (LV).
+   * @returns {Promise<any[]>} An array of user rankings.
+   * @description This method fetches user statistics from the database, filters out users with non-positive performance points,
+   * sorts them by country rank, and returns the top 50 users along with their statistics and user information.
+   * @throws {Error} If there is an error while fetching the rankings.
+    */
+  async getRankings(): Promise<any[]> {
+    const cachedRankings = this.cache.get<any[]>('rankings');
+    if (cachedRankings) {
+      return cachedRankings;
+    }
     const stats = await this.statsRepo.findAllLV();
-    return stats
+    var rankings = stats
       .filter(s => s.performancePoints > 0)
       .sort((a, b) => a.countryRank - b.countryRank)
+      .slice(0, 50)
       .map(s => ({
-        countryRank: s.countryRank,
-        globalRank: s.globalRank,
-        performancePoints: s.performancePoints,
-        country: s.country,
-        username: s.username,
-        discord: s.discord
+        stats: {
+          countryRank: s.countryRank,
+          globalRank: s.globalRank,
+          performancePoints: s.performancePoints
+        },
+        user: {
+          country: s.country,
+          username: s.username,
+          osuId: s.osuId,
+          ...(s.discord ? {
+            discordId: s.discord.discordId,
+            deleted: s.discord.deleted,
+            discordName: s.discord.discordName,
+            discordUsername: s.discord.discordUsername,
+            discordAvatar: s.discord.discordAvatar,
+            createdAt: s.discord.createdAt,
+            updatedAt: s.discord.updatedAt
+          } : {})
+        }
       }));
+    this.cache.set('rankings', rankings, config.cache.ttl);
+    return rankings;
   }
 }

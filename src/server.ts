@@ -6,6 +6,8 @@ import { apiLimiter } from './middleware/rateLimiter.middleware';
 import userRoutes from './routes/users.routes';
 import { swaggerDocument } from './swagger/swagger';
 import { logger } from './utils/logger';
+import { RankingsService } from './services/rankings.service';
+import { DailyStatsJob } from './jobs/DailyStatsUpdate';
 
 const app = express();
 
@@ -39,3 +41,7 @@ AppDataSource.initialize()
     logger.error('Error during Data Source initialization:', error);
     process.exit(1);
   });
+
+  const rankingsService = new RankingsService();
+  const dailyStatsJob = new DailyStatsJob(rankingsService);
+  dailyStatsJob.start();
