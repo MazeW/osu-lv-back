@@ -68,11 +68,29 @@ export const swaggerDocument = {
                       items: {
                         type: 'object',
                         properties: {
-                          countryRank: { type: 'number' },
-                          osuUsername: { type: 'string' },
-                          discordUsername: { type: 'string' },
-                          globalRank: { type: 'number' },
-                          performancePoints: { type: 'number' }
+                          stats: {
+                            type: 'object',
+                            properties: {
+                              countryRank: { type: 'number' },
+                              globalRank: { type: 'number' },
+                              performancePoints: { type: 'number' }
+                            }
+                          },
+                          user: {
+                            type: 'object',
+                            properties: {
+                              country: { type: 'string' },
+                              username: { type: 'string' },
+                              osuId: { type: 'string' },
+                              discordId: { type: 'string' },
+                              deleted: { type: 'boolean' },
+                              discordName: { type: 'string' },
+                              discordUsername: { type: 'string' },
+                              discordAvatar: { type: 'string' },
+                              createdAt: { type: 'string', format: 'date-time' },
+                              updatedAt: { type: 'string', format: 'date-time' }
+                            }
+                          }
                         }
                       }
                     }
@@ -80,6 +98,21 @@ export const swaggerDocument = {
                 }
               }
             }
+          }
+        }
+      }
+    },
+    '/api/triggerSync': {
+      post: {
+        security: [{ basicAuth: [] }],
+        tags: ['Stats'],
+        summary: 'Trigger user stats sync',
+        responses: {
+          '202': {
+            description: 'Sync started'
+          },
+          '429': {
+            description: 'Sync already in progress'
           }
         }
       }
