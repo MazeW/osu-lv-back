@@ -8,7 +8,7 @@ import { swaggerDocument } from './swagger/swagger';
 import { logger } from './utils/logger';
 import { RankingsService } from './services/rankings.service';
 import { DailyStatsJob } from './jobs/DailyStatsUpdate';
-
+const cors = require('cors');
 const app = express();
 
 app.use(express.json());
@@ -16,6 +16,9 @@ app.use(apiLimiter);
 app.set('trust proxy', 1);
 // API documentation
 app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+
+app.use(cors()); // currently allowing all origins, should restrict in production
 
 // API routes
 app.use('/api', userRoutes);

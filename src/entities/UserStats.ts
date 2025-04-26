@@ -1,11 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('user_stats')
+@Index(['osuId', 'mode'], { unique: true })
 export class UserStats {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ unique: true })
+  @Column()
   osuId!: string;
 
   @Column()
@@ -22,6 +23,9 @@ export class UserStats {
 
   @Column()
   country!: string;
+
+  @Column({ default: 'osu' })
+  mode!: string;
 
   @CreateDateColumn()
   createdAt!: Date;

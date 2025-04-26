@@ -118,7 +118,8 @@ export class RankingsService {
           globalRank: stats.globalRank ?? 0,
           countryRank: stats.countryRank ?? 0,
           performancePoints: stats.performancePoints ?? 0,
-          country: stats.country
+          country: stats.country,
+          mode: 'osu' // todo: support other modes
         });
       } catch (err: any) {
         errors.push({

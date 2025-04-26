@@ -3,7 +3,8 @@ export interface OsuUser {
     countryRank: number,
     performancePoints: number,
     country: string,
-    username: string
+    username: string,
+    mode: string
   }
   
   export interface UserRanking  extends OsuUser{

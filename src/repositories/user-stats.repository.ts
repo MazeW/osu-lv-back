@@ -37,7 +37,7 @@ export class UserStatsRepository {
     }
   }
 
-  async findAllLV(): Promise<(UserStats & { discord?: any })[]> {
+  async findAllLV(mode: string = "osu"): Promise<(UserStats & { discord?: any })[]> {
     return this.repository
       .createQueryBuilder('stats')
       .innerJoinAndMapOne(
@@ -46,7 +46,7 @@ export class UserStatsRepository {
         'user',
         'user.osuId = stats.osuId'
       )
-      .where('stats.country = :c', { c: 'LV' })
+      .where('stats.country = :c and stats.mode = :m', { c: 'LV', m: mode })
       .orderBy('stats.countryRank', 'ASC')
       .getMany();
   }
