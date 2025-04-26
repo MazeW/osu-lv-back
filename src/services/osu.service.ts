@@ -53,7 +53,8 @@ export class OsuService {
       countryRank: response.data.statistics.country_rank,
       performancePoints: response.data.statistics.pp,
       country: response.data.country.code,
-      username: response.data.username
+      username: response.data.username,
+      mode: mode
     };
   }
 
