@@ -1,7 +1,8 @@
 import axios from 'axios';
 import NodeCache from 'node-cache';
 import { config } from '../config/config';
-import { OsuUser, Rankings } from '../types/osu';
+import { Score } from '../types/score';
+import { OsuUser } from '../types/osu';
 
 
 export class OsuService {
@@ -66,13 +67,13 @@ export class OsuService {
    * @param {number} offset - The offset for pagination (default is 0). Useful if you want to get outside of top 100 scores.
    * @param {string} mode - The game mode (default is "osu").
    * @description Retrieves user scores from the osu! API.
-   * @returns {Promise<Rankings>} The user scores.
+   * @returns {Promise<Score[]>} The user scores.
    */
-  async getUserScores(userId: string, type: string = "best", limit: number = 5, offset: number = 0, mode: string = "osu"): Promise<Rankings> {
+  async getUserScores(userId: string, type: string = "best", limit: number = 5, offset: number = 0, mode: string = "osu"): Promise<Score[]> {
     const token = await this.getToken();
     const response = await axios.get(`${config.osuApi.baseUrl}/users/${userId}/scores/${type}?mode=${mode}&limit=${limit}&offset=${offset}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data as Rankings;
+    return response.data as Score[];
   }
 }

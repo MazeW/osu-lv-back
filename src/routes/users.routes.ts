@@ -7,6 +7,7 @@ const router = Router();
 
 router.post('/discordUserData', authMiddleware, validateUserData, UsersController.upsertUsers);
 router.get('/userRankings', UsersController.getUserRankings);
+router.get('/bestScores', UsersController.getBestScores);
 router.post('/triggerSync',authMiddleware, UsersController.triggerSync);
 
 export default router;

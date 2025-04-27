@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { config } from '../config/config';
 import { UserRanking } from '../types/osu';
 import NodeCache from 'node-cache';
+import { UserScoreRepository } from '../repositories/user-scores.repository';
 
 interface ProcessResult {
   success: boolean;
@@ -16,6 +17,7 @@ interface ProcessResult {
 export class RankingsService {
   private userRepo = new UserRepository();
   private statsRepo = new UserStatsRepository();
+  private scoreRepo = new UserScoreRepository();
   private osuSvc = new OsuService();
   private discordSvc = new DiscordService();
   private cache = new NodeCache({ stdTTL: config.cache.ttl });
@@ -101,7 +103,7 @@ export class RankingsService {
         }
         errors.push({
           osuId: user.osuId,
-          step: 'osu',
+          step: 'osu-stats',
           message: `[${err?.response?.status}] ${err.message}`
         });
         continue;
@@ -125,6 +127,55 @@ export class RankingsService {
         errors.push({
           osuId: user.osuId,
           step: 'stats-upsert',
+          message: err.message
+        });
+      }
+
+      let scores: any[] = [];
+      try {
+        scores = await this.osuSvc.getUserScores(user.osuId, 'best', 25, 0, 'osu');
+        if (!scores) {
+          throw new Error('No scores returned');
+        }
+      } catch (err: any) {
+        errors.push({
+          osuId: user.osuId,
+          step: 'osu-scores',
+          message: `[${err?.response?.status}] ${err.message}`
+        });
+        continue;
+      }
+
+      try {
+        for (const score of scores) {
+          if (score.pp < 500) {
+            continue; // lets not waste db space 
+          }
+          if (score.user.country_code !== 'LV') {
+            continue; // only latvian scores
+          }
+
+            await this.scoreRepo.insert({
+            userId: user.osuId,
+            beatmapUrl: score.beatmap.url,
+            id: score.id,
+            mode: score.mode,
+            accuracy: score.accuracy,
+            mods: score.mods,
+            pp: score.pp,
+            ppWeighted: score.weight.pp,
+            covers: score.beatmapset.covers,
+            createdAt: new Date(new Date(score.created_at).toUTCString()),
+            statistics: score.statistics,
+            beatmapDifficulty: score.beatmap.version,
+            beatmapArtist: score.beatmapset.artist,
+            beatmapTitle: score.beatmapset.title,
+            });
+        }
+      } catch (err: any) {
+        errors.push({
+          osuId: user.osuId,
+          step: 'scrores-insert',
           message: err.message
         });
       }
@@ -177,5 +228,15 @@ export class RankingsService {
       }));
     this.cache.set('rankings', rankings, config.cache.ttl);
     return rankings;
+  }
+
+  async getBestScores(mode: string = 'osu'): Promise<any[]> {
+    const cachedScores = this.cache.get<UserRanking[]>(`best_scores_${mode}`);
+    if (cachedScores) {
+      return cachedScores;
+    }
+    const scores = await this.scoreRepo.topScores(mode);
+    this.cache.set(`best_scores_${mode}`, scores, config.cache.ttl);
+    return scores;
   }
 }

@@ -102,6 +102,78 @@ export const swaggerDocument = {
         }
       }
     },
+    '/api/bestScores': {
+      get: {
+        security: [],
+        tags: ['Stats'],
+        summary: 'Get best scores for all users',
+        responses: {
+          '200': {
+            description: 'List of best scores',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    scores: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          userId: { type: 'string' },
+                          mode: { type: 'string' },
+                          rank: { type: 'string', nullable: true },
+                          mods: {
+                            type: 'array',
+                            items: { type: 'string' }
+                          },
+                          pp: { type: 'number' },
+                          ppWeighted: { type: 'number' },
+                          accuracy: { type: 'number' },
+                          statistics: {
+                            type: 'object',
+                            properties: {
+                              count_100: { type: 'number' },
+                              count_300: { type: 'number' },
+                              count_50: { type: 'number' },
+                              count_geki: { type: 'number', nullable: true },
+                              count_katu: { type: 'number', nullable: true },
+                              count_miss: { type: 'number' }
+                            }
+                          },
+                          beatmapArtist: { type: 'string' },
+                          beatmapTitle: { type: 'string' },
+                          beatmapDifficulty: { type: 'string' },
+                          beatmapUrl: { type: 'string' },
+                          covers: {
+                            type: 'object',
+                            properties: {
+                              cover: { type: 'string' },
+                              'cover@2x': { type: 'string' },
+                              card: { type: 'string' },
+                              'card@2x': { type: 'string' },
+                              list: { type: 'string' },
+                              'list@2x': { type: 'string' },
+                              slimcover: { type: 'string' },
+                              'slimcover@2x': { type: 'string' }
+                            }
+                          },
+                          createdAt: { type: 'string', format: 'date-time' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '420': {
+            description: 'Internal server error'
+          }
+        }
+      }
+    },
     '/api/triggerSync': {
       post: {
         security: [{ basicAuth: [] }],

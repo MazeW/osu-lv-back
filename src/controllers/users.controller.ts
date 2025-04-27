@@ -53,6 +53,20 @@ export class UsersController {
     }
   }
 
+  static async getBestScores(req: Request, res: Response) {
+    try {
+
+      const scores = await UsersController.rankingsService.getBestScores();
+      return res.json({ scores });
+    } catch (error) {
+      logger.error('Error fetching best scores:', error);
+      return res.status(420).json({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  }
+
   static async triggerSync(req: Request, res: Response) {
     if (UsersController.isSyncing) {
       return res.status(429).json({ message: 'Sync already in progress' });
