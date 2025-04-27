@@ -21,7 +21,8 @@ export class UserStatsRepository {
   async upsert(stats: UserStatsData): Promise<UserStats> {
     try {
       const existingStats = await this.repository.findOne({
-        where: { osuId: stats.osuId }
+        where: { osuId: stats.osuId , mode: stats.mode },
+        relations: ['user']
       });
 
       if (existingStats) {
@@ -46,8 +47,9 @@ export class UserStatsRepository {
         'user',
         'user.osuId = stats.osuId'
       )
-      .where('stats.country = :c and stats.mode = :m', { c: 'LV', m: mode })
+      .where('stats.country = :c and stats.mode = :m and user.deleted = 0', { c: 'LV', m: mode })
       .orderBy('stats.countryRank', 'ASC')
+      .limit(100)
       .getMany();
   }
 }

@@ -1,10 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './User';
 
 @Entity('user_stats')
 @Index(['osuId', 'mode'], { unique: true })
 export class UserStats {
   @PrimaryGeneratedColumn()
   id!: number;
+
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'osuId' })
+    user!: User;
 
   @Column()
   osuId!: string;

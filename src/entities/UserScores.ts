@@ -1,9 +1,14 @@
-import { Entity, PrimaryColumn, Column } from 'typeorm';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './User';
 
 @Entity('user_scores')
 export class UserScore {
   @PrimaryColumn()
   id!: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
+  user!: User;
 
   @Column()
   userId!: string;

@@ -133,7 +133,7 @@ export class RankingsService {
 
       let scores: any[] = [];
       try {
-        scores = await this.osuSvc.getUserScores(user.osuId, 'best', 25, 0, 'osu');
+        scores = await this.osuSvc.getUserScores(user.osuId, 'best', 100, 0, 'osu');
         if (!scores) {
           throw new Error('No scores returned');
         }
@@ -149,7 +149,7 @@ export class RankingsService {
       try {
         for (const score of scores) {
           if (score.pp < 500) {
-            continue; // lets not waste db space 
+            continue; // lets not waste db space may need to be adjusted for other modes
           }
           if (score.user.country_code !== 'LV') {
             continue; // only latvian scores
@@ -161,6 +161,7 @@ export class RankingsService {
             id: score.id,
             mode: score.mode,
             accuracy: score.accuracy,
+            rank: score.rank,
             mods: score.mods,
             pp: score.pp,
             ppWeighted: score.weight.pp,
@@ -204,7 +205,6 @@ export class RankingsService {
     var rankings = stats
       .filter(s => s.performancePoints > 0)
       .sort((a, b) => a.countryRank - b.countryRank)
-      .slice(0, 50)
       .map(s => ({
         stats: {
           countryRank: s.countryRank,
@@ -231,7 +231,7 @@ export class RankingsService {
   }
 
   async getBestScores(mode: string = 'osu'): Promise<any[]> {
-    const cachedScores = this.cache.get<UserRanking[]>(`best_scores_${mode}`);
+    const cachedScores = this.cache.get<any[]>(`best_scores_${mode}`);
     if (cachedScores) {
       return cachedScores;
     }
