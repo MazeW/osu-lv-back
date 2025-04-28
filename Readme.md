@@ -1,6 +1,6 @@
 ## osu! lv website back api
 
-This is the back api for \<repo here> to comunicate with services like discord.
+This is the back api for [osu-lv-front](https://github.com/MazeW/osu-lv-front) to comunicate with services like discord & osu api.
 
 ## Run locally
 
